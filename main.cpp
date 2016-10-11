@@ -52,6 +52,8 @@ int main(int , char *[])
         {
             std::cout << __LINE__ << " " << "Getstring ok : " << str << std::endl;
         }
+
+        reader.Close();
     }
     else
     {
