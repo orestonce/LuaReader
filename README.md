@@ -30,4 +30,9 @@ C++ 封装的一个简单的lua读取器
 5. 在关闭了LuaReader后， 可以再次打开其他的lua文件进行读取
 	`reader.Close()`
 
-	
+## 2016.10.14 更新
+
+支持使用 int 和string 作为key进行读取数据、进入table
+但是使用int作为key的时候, 需要注意GetDepth() > 0 
+
+[example](https://github.com/orestonce/LuaReader/blob/master/main.cpp "example")
