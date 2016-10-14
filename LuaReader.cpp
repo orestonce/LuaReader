@@ -5,6 +5,27 @@
 namespace RoTool
 {
 
+enum ELuaIndexType
+{
+    ELIT_INT,       // 整数类型的index
+    ELIT_STRING,    // 字符串类型的index
+};
+
+class CLuaIndexHelper::_implCLuaIndexHelper
+{
+public :
+    ELuaIndexType m_xIndexType;
+    std::string   m_strIndex;
+    int           m_iIndex;
+public :
+    _implCLuaIndexHelper(ELuaIndexType xIndexType, const std::string& strIndex, int iIndex)
+    {
+        m_xIndexType = xIndexType;
+        m_strIndex = strIndex;
+        m_iIndex = iIndex;
+    }
+};
+
 class CLuaReader::_implCLuaReader
 {
 public :
@@ -48,6 +69,26 @@ public :
         }
     }
 
+    void Begin(int iIndex)
+    {
+        int cnt = lua_gettop(m_pLuaState);
+        assert(cnt > 0 );
+
+        lua_rawgeti(m_pLuaState, -1, iIndex);
+    }
+
+    void Begin(CLuaIndexHelper::_implCLuaIndexHelper *pIndex)
+    {
+        if ( pIndex->m_xIndexType == ELIT_STRING )
+        {
+            Begin(pIndex->m_strIndex.c_str());
+        }
+        else
+        {
+            Begin(pIndex->m_iIndex);
+        }
+    }
+
     void End()
     {
         if ( lua_gettop(m_pLuaState) != 0 )
@@ -84,13 +125,13 @@ CLuaReader::~CLuaReader()
     Close();
 }
 
-bool CLuaReader::Open(const char *szFileName)
+bool CLuaReader::Open(const std::string &strFileName)
 {
     assert( m_pImpl == NULL );
 
     m_pImpl = new _implCLuaReader;
 
-    if ( !m_pImpl->Open( szFileName ) )
+    if ( !m_pImpl->Open( strFileName.c_str() ) )
     {
         Close();
         return false;
@@ -98,6 +139,11 @@ bool CLuaReader::Open(const char *szFileName)
 
 
     return true;
+}
+
+bool CLuaReader::IsOpen() const
+{
+    return m_pImpl != NULL;
 }
 
 void CLuaReader::Close()
@@ -109,11 +155,28 @@ void CLuaReader::Close()
     }
 }
 
-bool CLuaReader::GetValue(const char *szVarName, bool &bVarStore)
+bool CLuaReader::GetValue(const CLuaIndexHelper &xIndex, int &iVarStore)
+{
+    assert(m_pImpl);
+
+    m_pImpl->Begin( xIndex.m_pImpl );
+    _implCLuaReader::CLuaEnder ender(m_pImpl);
+
+    if ( !lua_isinteger(m_pImpl->m_pLuaState, -1) )
+    {
+        return false;
+    }
+
+    iVarStore = lua_tointeger(m_pImpl->m_pLuaState, -1);
+
+    return true;
+}
+
+bool CLuaReader::GetValue(const CLuaIndexHelper &xIndex, bool &bVarStore)
 {
     assert( m_pImpl );
 
-    m_pImpl->Begin(szVarName);
+    m_pImpl->Begin(xIndex.m_pImpl);
 
     _implCLuaReader::CLuaEnder ender(m_pImpl);
 
@@ -127,29 +190,11 @@ bool CLuaReader::GetValue(const char *szVarName, bool &bVarStore)
     return true;
 }
 
-bool CLuaReader::GetValue(const char *szVarName, int &bVarStore)
+bool CLuaReader::GetValue(const CLuaIndexHelper &xIndex, double &dVarStore)
 {
     assert( m_pImpl );
 
-    m_pImpl->Begin(szVarName);
-
-    _implCLuaReader::CLuaEnder ender(m_pImpl);
-
-    if ( !lua_isinteger(m_pImpl->m_pLuaState, -1) )
-    {
-        return false;
-    }
-
-    bVarStore = lua_tointeger(m_pImpl->m_pLuaState, -1);
-
-    return true;
-}
-
-bool CLuaReader::GetValue(const char *szVarName, double &dVarStore)
-{
-    assert( m_pImpl );
-
-    m_pImpl->Begin(szVarName);
+    m_pImpl->Begin(xIndex.m_pImpl);
 
     _implCLuaReader::CLuaEnder ender(m_pImpl);
 
@@ -163,11 +208,11 @@ bool CLuaReader::GetValue(const char *szVarName, double &dVarStore)
     return true;
 }
 
-bool CLuaReader::GetValue(const char *szVarName, std::string &strVarStore)
+bool CLuaReader::GetValue(const CLuaIndexHelper &xIndex, std::string &strVarStore)
 {
     assert( m_pImpl );
 
-    m_pImpl->Begin(szVarName);
+    m_pImpl->Begin(xIndex.m_pImpl);
     _implCLuaReader::CLuaEnder ender(m_pImpl);
 
     if ( !lua_isstring(m_pImpl->m_pLuaState, -1) )
@@ -184,11 +229,11 @@ bool CLuaReader::GetValue(const char *szVarName, std::string &strVarStore)
     return true;
 }
 
-bool CLuaReader::EnterTable(const char *szTableName)
+bool CLuaReader::EnterTable(const CLuaIndexHelper &xIndex)
 {
     assert( m_pImpl );
 
-    m_pImpl->Begin(szTableName);
+    m_pImpl->Begin(xIndex.m_pImpl);
 
     if ( !lua_istable(m_pImpl->m_pLuaState, -1) )
     {
@@ -201,12 +246,35 @@ bool CLuaReader::EnterTable(const char *szTableName)
 
 void CLuaReader::ExitTable()
 {
+    assert(m_pImpl);
     m_pImpl->End();
 }
 
 int CLuaReader::GetDepth()
 {
+    assert(m_pImpl);
     return lua_gettop(m_pImpl->m_pLuaState);
+}
+
+CLuaIndexHelper::CLuaIndexHelper(const char *szFieldName)
+{
+    assert(szFieldName);
+    m_pImpl = new _implCLuaIndexHelper(ELIT_STRING, szFieldName, 0);
+}
+
+CLuaIndexHelper::CLuaIndexHelper(const std::string &strFieldName)
+{
+    m_pImpl = new _implCLuaIndexHelper(ELIT_STRING, strFieldName, 0);
+}
+
+CLuaIndexHelper::CLuaIndexHelper(int iFiledIndex)
+{
+    m_pImpl = new _implCLuaIndexHelper(ELIT_INT, "", iFiledIndex);
+}
+
+CLuaIndexHelper::~CLuaIndexHelper()
+{
+    delete m_pImpl;
 }
 
 }

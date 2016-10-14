@@ -1,46 +1,80 @@
 #include <iostream>
 #include "LuaReader.h"
 
+void Output(bool b, int i, double d, std::string const& str)
+{
+    std::cout << std::boolalpha << b << std::endl;
+    std::cout << i << std::endl;
+    std::cout << d << std::endl;
+    std::cout << str << std::endl;
+}
+
+void ReadByIntIndex(RoTool::CLuaReader& reader)
+{
+    bool        b   = false;
+    int         i   = 0;
+    double      d   = 0;
+    std::string str = "";
+
+    reader.GetValue(1, b);
+    reader.GetValue(2, i);
+    reader.GetValue(3, d);
+    reader.GetValue(4, str);
+
+    Output(b, i, d, str);
+}
+
+void TestDefault(RoTool::CLuaReader& reader)
+{
+    bool        b   = false;
+    int         i   = 0;
+    double      d   = 0;
+    std::string str = "";
+
+    LUAREADER_GETVALUE_DEFAULT(reader, "default_test", b, true);
+    LUAREADER_GETVALUE_DEFAULT(reader, "default_test", i, 10);
+    LUAREADER_GETVALUE_DEFAULT(reader, "default_test", d, 10.1);
+    LUAREADER_GETVALUE_DEFAULT(reader, "default_test", str, "default string");
+
+    Output(b, i, d, str);
+}
+
+void ReadByStringIndex(RoTool::CLuaReader& reader)
+{
+    bool        b   = false;
+    int         i   = 0;
+    double      d   = 0;
+    std::string str = "";
+
+    reader.GetValue("bool", b);
+    reader.GetValue("int", i);
+    reader.GetValue("double", d);
+    reader.GetValue("string", str);
+
+    Output(b, i, d, str);
+}
+
 int main(int , char *[])
 {
     RoTool::CLuaReader reader;
 
-    if ( reader.Open("./test.lua") )
+    if ( reader.Open("E:/test.lua") )
     {
-        int x = 0;
-        if ( reader.GetValue("x2", x) )
-        {
-            std::cout << __LINE__ << " "<< x << reader.GetDepth() << std::endl;
-        }
+        std::cout << "Open lua : " << std::boolalpha << reader.IsOpen() << std::endl;
+        TestDefault(reader);
+        ReadByStringIndex(reader);
 
-        std::string str ;
-
-        if ( reader.GetValue("count", str) )
+        if ( reader.EnterTable("table") )
         {
-            std::cout << __LINE__ << " " << "Getstring ok : " << str << std::endl;
-            str.clear();
-        }
+            TestDefault(reader);
+            ReadByStringIndex(reader);
+            ReadByIntIndex(reader);
 
-        if ( reader.EnterTable("user_table") )
-        {
-            if ( reader.GetValue("u", str) )
+            if ( reader.EnterTable(std::string("table2") ) )
             {
-                std::cout << __LINE__ << " " << "depth string : " << str << std::endl;
-            }
-
-            if ( reader.EnterTable("user2") )
-            {
-                if ( reader.GetValue("u2", x) )
-                {
-                    std::cout << __LINE__ << " " << "int : " << x << std::endl;
-                }
-
-                bool b = true;
-
-                if ( reader.GetValue("u4", b) )
-                {
-                    std::cout << __LINE__ << " " << "bool : " << b << std::endl;
-                }
+                TestDefault(reader);
+                ReadByIntIndex(reader);
+                ReadByStringIndex(reader);
 
                 reader.ExitTable();
             }
@@ -48,16 +82,37 @@ int main(int , char *[])
             reader.ExitTable();
         }
 
-        if ( reader.GetValue("count2", str) )
+        if ( reader.EnterTable("table3") )
         {
-            std::cout << __LINE__ << " " << "Getstring ok : " << str << std::endl;
+            TestDefault(reader);
+            if ( reader.EnterTable(1) )
+            {
+                TestDefault(reader);
+                ReadByIntIndex(reader);
+                ReadByStringIndex(reader);
+
+                reader.ExitTable();
+            }
+
+            if ( reader.EnterTable(2) )
+            {
+                TestDefault(reader);
+                ReadByIntIndex(reader);
+                ReadByStringIndex(reader);
+
+                reader.ExitTable();
+            }
+
+            reader.ExitTable();
         }
+
+        TestDefault(reader);
 
         reader.Close();
     }
     else
     {
-        std::cout << __LINE__ << " " << "Open lua file error !" << std::endl;
+        std::cout << "Open lua : " << std::boolalpha << reader.IsOpen() << std::endl;
     }
 
     return 0;
